@@ -2,6 +2,7 @@
 import * as cheerio from 'cheerio';
 import { BaseScraper } from './base';
 import { ScrapedChapter, SearchResult, SourceType } from '@/types';
+import { mapWithConcurrencyLimit, SEARCH_DETAIL_FETCH_CONCURRENCY } from '@/lib/utils/concurrency';
 
 export class RavenScansScraper extends BaseScraper {
   private readonly baseUrl = 'https://ravenscans.org';
@@ -124,19 +125,21 @@ export class RavenScansScraper extends BaseScraper {
       }
     });
 
-    // Handle the chapter 0 issue: if latestChapter is 0, fetch the actual chapter list
-    for (const result of results) {
-      if (result.latestChapter === 0) {
-        try {
-          const chapters = await this.getChapterList(result.url);
-          if (chapters.length > 0) {
-            result.latestChapter = Math.max(...chapters.map(ch => ch.number));
-          }
-        } catch (error) {
-          console.error(`[Raven Scans] Failed to fetch chapter list for ${result.url}:`, error);
+    // Handle the chapter 0 issue: if latestChapter is 0, fetch the actual
+    // chapter list - bounded-concurrency rather than one at a time, but
+    // still mutating each `result` object in place (each is only ever
+    // touched by its own task, so this is safe under concurrency).
+    const needsEnrichment = results.filter((result) => result.latestChapter === 0);
+    await mapWithConcurrencyLimit(needsEnrichment, SEARCH_DETAIL_FETCH_CONCURRENCY, async (result) => {
+      try {
+        const chapters = await this.getChapterList(result.url);
+        if (chapters.length > 0) {
+          result.latestChapter = Math.max(...chapters.map(ch => ch.number));
         }
+      } catch (error) {
+        console.error(`[Raven Scans] Failed to fetch chapter list for ${result.url}:`, error);
       }
-    }
+    });
 
     console.log(`[Raven Scans] Found ${results.length} results for query: ${query}`);
 

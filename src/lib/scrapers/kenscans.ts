@@ -2,6 +2,7 @@
 import * as cheerio from "cheerio";
 import { BaseScraper } from "./base";
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
+import { mapWithConcurrencyLimit, SEARCH_DETAIL_FETCH_CONCURRENCY } from "@/lib/utils/concurrency";
 
 interface KenscansSeries {
   id: number;
@@ -134,78 +135,80 @@ export class KenscansScraper extends BaseScraper {
 
       const limitedSeries = data.posts.slice(0, 5);
 
-      const results: SearchResult[] = [];
+      const results = await mapWithConcurrencyLimit(
+        limitedSeries,
+        SEARCH_DETAIL_FETCH_CONCURRENCY,
+        async (series): Promise<SearchResult> => {
+          try {
+            const seriesUrl = `${this.BASE_URL}/series/${series.slug}`;
 
-      for (const series of limitedSeries) {
-        try {
-          const seriesUrl = `${this.BASE_URL}/series/${series.slug}`;
+            const seriesHtml = await this.fetchWithRetry(seriesUrl);
+            const $ = cheerio.load(seriesHtml);
 
-          const seriesHtml = await this.fetchWithRetry(seriesUrl);
-          const $ = cheerio.load(seriesHtml);
+            let latestChapter = 0;
+            let lastUpdatedText = "";
 
-          let latestChapter = 0;
-          let lastUpdatedText = "";
+            $("a[href*='/chapter-']").each((_: number, element: any) => {
+              const $link = $(element);
+              const href = $link.attr("href");
 
-          $("a[href*='/chapter-']").each((_: number, element: any) => {
-            const $link = $(element);
-            const href = $link.attr("href");
+              if (!href) return;
 
-            if (!href) return;
-
-            const hasLockIcon = $link.find('svg path[d*="5.25 5.25"]').length > 0;
-            if (hasLockIcon) {
-              return;
-            }
-
-            const chapterMatch = href.match(/\/chapter-(\d+(?:\.\d+)?)/);
-            if (!chapterMatch) return;
-
-            const chapterNumber = parseFloat(chapterMatch[1]);
-
-            if (chapterNumber > latestChapter) {
-              latestChapter = chapterNumber;
-              lastUpdatedText = $link.find(".text-xs.text-white\\/50").first().text().trim();
-            }
-          });
-
-          let lastUpdatedTimestamp: number | undefined;
-          if (lastUpdatedText) {
-            try {
-              const parsedDate = this.parseRelativeDate(lastUpdatedText);
-              if (!isNaN(parsedDate.getTime())) {
-                lastUpdatedTimestamp = parsedDate.getTime();
+              const hasLockIcon = $link.find('svg path[d*="5.25 5.25"]').length > 0;
+              if (hasLockIcon) {
+                return;
               }
-            } catch {
-              // Ignore date parse errors
-            }
-          }
 
-          results.push({
-            id: series.slug,
-            title: series.postTitle,
-            url: seriesUrl,
-            coverImage: series.featuredImage,
-            latestChapter,
-            lastUpdated: lastUpdatedText,
-            lastUpdatedTimestamp,
-            rating: series.averageRating,
-          });
-        } catch (error) {
-          console.error(
-            `[Kenscans] Failed to fetch chapter list for ${series.postTitle}:`,
-            error
-          );
-          results.push({
-            id: series.slug,
-            title: series.postTitle,
-            url: `${this.BASE_URL}/series/${series.slug}`,
-            coverImage: series.featuredImage,
-            latestChapter: 0,
-            lastUpdated: "",
-            rating: series.averageRating,
-          });
-        }
-      }
+              const chapterMatch = href.match(/\/chapter-(\d+(?:\.\d+)?)/);
+              if (!chapterMatch) return;
+
+              const chapterNumber = parseFloat(chapterMatch[1]);
+
+              if (chapterNumber > latestChapter) {
+                latestChapter = chapterNumber;
+                lastUpdatedText = $link.find(".text-xs.text-white\\/50").first().text().trim();
+              }
+            });
+
+            let lastUpdatedTimestamp: number | undefined;
+            if (lastUpdatedText) {
+              try {
+                const parsedDate = this.parseRelativeDate(lastUpdatedText);
+                if (!isNaN(parsedDate.getTime())) {
+                  lastUpdatedTimestamp = parsedDate.getTime();
+                }
+              } catch {
+                // Ignore date parse errors
+              }
+            }
+
+            return {
+              id: series.slug,
+              title: series.postTitle,
+              url: seriesUrl,
+              coverImage: series.featuredImage,
+              latestChapter,
+              lastUpdated: lastUpdatedText,
+              lastUpdatedTimestamp,
+              rating: series.averageRating,
+            };
+          } catch (error) {
+            console.error(
+              `[Kenscans] Failed to fetch chapter list for ${series.postTitle}:`,
+              error
+            );
+            return {
+              id: series.slug,
+              title: series.postTitle,
+              url: `${this.BASE_URL}/series/${series.slug}`,
+              coverImage: series.featuredImage,
+              latestChapter: 0,
+              lastUpdated: "",
+              rating: series.averageRating,
+            };
+          }
+        },
+      );
 
       return results;
     } catch (error) {

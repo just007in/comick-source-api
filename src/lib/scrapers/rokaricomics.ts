@@ -2,6 +2,7 @@
 import * as cheerio from "cheerio";
 import { BaseScraper } from "./base";
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
+import { mapWithConcurrencyLimit, SEARCH_DETAIL_FETCH_CONCURRENCY } from "@/lib/utils/concurrency";
 
 export class RokariComicsScraper extends BaseScraper {
   private readonly BASE_URL = "https://rokaricomics.com";
@@ -156,75 +157,78 @@ export class RokariComicsScraper extends BaseScraper {
 
     const limitedSeries = matchedSeries.slice(0, 5);
 
-    const results: SearchResult[] = [];
-    for (const series of limitedSeries) {
-      try {
-        const seriesHtml = await this.fetchWithRetry(series.url);
-        const $series = cheerio.load(seriesHtml);
+    const results = await mapWithConcurrencyLimit(
+      limitedSeries,
+      SEARCH_DETAIL_FETCH_CONCURRENCY,
+      async (series): Promise<SearchResult> => {
+        try {
+          const seriesHtml = await this.fetchWithRetry(series.url);
+          const $series = cheerio.load(seriesHtml);
 
-        let latestChapter = 0;
-        let lastUpdatedText = "";
+          let latestChapter = 0;
+          let lastUpdatedText = "";
 
-        $series("#chapterlist ul li").each((_, el) => {
-          const $ch = $series(el);
-          const $link = $ch.find("a").first();
-          const href = $link.attr("href");
-          const hasCoinIndicator = $ch.find(".text-gold").length > 0;
+          $series("#chapterlist ul li").each((_, el) => {
+            const $ch = $series(el);
+            const $link = $ch.find("a").first();
+            const href = $link.attr("href");
+            const hasCoinIndicator = $ch.find(".text-gold").length > 0;
 
-          if (href && !hasCoinIndicator && latestChapter === 0) {
-            const chapterNumAttr = $ch.attr("data-num");
-            if (chapterNumAttr) {
-              latestChapter = parseFloat(chapterNumAttr);
+            if (href && !hasCoinIndicator && latestChapter === 0) {
+              const chapterNumAttr = $ch.attr("data-num");
+              if (chapterNumAttr) {
+                latestChapter = parseFloat(chapterNumAttr);
+              }
+              lastUpdatedText = $link.find(".chapterdate").text().trim();
             }
-            lastUpdatedText = $link.find(".chapterdate").text().trim();
+
+            const dataNum = $ch.attr("data-num");
+            if (dataNum && !hasCoinIndicator) {
+              const num = parseFloat(dataNum);
+              if (num > latestChapter) {
+                latestChapter = num;
+                lastUpdatedText = $ch.find(".chapterdate").text().trim();
+              }
+            }
+          });
+
+          let lastUpdatedTimestamp: number | undefined;
+          if (lastUpdatedText) {
+            try {
+              const parsedDate = new Date(lastUpdatedText);
+              if (!isNaN(parsedDate.getTime())) {
+                lastUpdatedTimestamp = parsedDate.getTime();
+              }
+            } catch {
+              // Ignore date parse errors
+            }
           }
 
-          const dataNum = $ch.attr("data-num");
-          if (dataNum && !hasCoinIndicator) {
-            const num = parseFloat(dataNum);
-            if (num > latestChapter) {
-              latestChapter = num;
-              lastUpdatedText = $ch.find(".chapterdate").text().trim();
-            }
-          }
-        });
-
-        let lastUpdatedTimestamp: number | undefined;
-        if (lastUpdatedText) {
-          try {
-            const parsedDate = new Date(lastUpdatedText);
-            if (!isNaN(parsedDate.getTime())) {
-              lastUpdatedTimestamp = parsedDate.getTime();
-            }
-          } catch {
-            // Ignore date parse errors
-          }
+          return {
+            id: series.id,
+            title: series.title,
+            url: series.url,
+            coverImage: series.coverImage,
+            latestChapter,
+            lastUpdated: lastUpdatedText,
+            lastUpdatedTimestamp,
+          };
+        } catch (error) {
+          console.error(
+            `[RokariComics] Failed to fetch chapter list for ${series.title}:`,
+            error
+          );
+          return {
+            id: series.id,
+            title: series.title,
+            url: series.url,
+            coverImage: series.coverImage,
+            latestChapter: 0,
+            lastUpdated: "",
+          };
         }
-
-        results.push({
-          id: series.id,
-          title: series.title,
-          url: series.url,
-          coverImage: series.coverImage,
-          latestChapter,
-          lastUpdated: lastUpdatedText,
-          lastUpdatedTimestamp,
-        });
-      } catch (error) {
-        console.error(
-          `[RokariComics] Failed to fetch chapter list for ${series.title}:`,
-          error
-        );
-        results.push({
-          id: series.id,
-          title: series.title,
-          url: series.url,
-          coverImage: series.coverImage,
-          latestChapter: 0,
-          lastUpdated: "",
-        });
-      }
-    }
+      },
+    );
 
     return results;
   }

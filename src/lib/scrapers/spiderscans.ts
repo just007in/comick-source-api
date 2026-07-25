@@ -2,6 +2,7 @@
 import * as cheerio from "cheerio";
 import { BaseScraper } from "./base";
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
+import { mapWithConcurrencyLimit, SEARCH_DETAIL_FETCH_CONCURRENCY } from "@/lib/utils/concurrency";
 
 export class SpiderScansScraper extends BaseScraper {
   private readonly BASE_URL = "https://spiderscans.xyz";
@@ -190,101 +191,104 @@ export class SpiderScansScraper extends BaseScraper {
 
     const limitedSeries = matchedSeries.slice(0, 5);
 
-    const results: SearchResult[] = [];
-    for (const series of limitedSeries) {
-      try {
-        const seriesHtml = await this.fetchWithRetry(series.url);
-
-        let latestChapter = 0;
-        let lastUpdatedText = "";
-
-        const ajaxUrl = series.url.endsWith("/")
-          ? `${series.url}ajax/chapters/?t=1`
-          : `${series.url}/ajax/chapters/?t=1`;
-
-        let chaptersHtml: string;
+    const results = await mapWithConcurrencyLimit(
+      limitedSeries,
+      SEARCH_DETAIL_FETCH_CONCURRENCY,
+      async (series): Promise<SearchResult> => {
         try {
-          const response = await fetch(ajaxUrl, {
-            method: "POST",
-            headers: {
-              "User-Agent": this.config.userAgent,
-              Accept: "*/*",
-              "X-Requested-With": "XMLHttpRequest",
-              Referer: series.url,
-            },
+          const seriesHtml = await this.fetchWithRetry(series.url);
+
+          let latestChapter = 0;
+          let lastUpdatedText = "";
+
+          const ajaxUrl = series.url.endsWith("/")
+            ? `${series.url}ajax/chapters/?t=1`
+            : `${series.url}/ajax/chapters/?t=1`;
+
+          let chaptersHtml: string;
+          try {
+            const response = await fetch(ajaxUrl, {
+              method: "POST",
+              headers: {
+                "User-Agent": this.config.userAgent,
+                Accept: "*/*",
+                "X-Requested-With": "XMLHttpRequest",
+                Referer: series.url,
+              },
+            });
+
+            chaptersHtml = response.ok ? await response.text() : seriesHtml;
+          } catch {
+            chaptersHtml = seriesHtml;
+          }
+
+          const $chapters = cheerio.load(chaptersHtml);
+
+          $chapters("li.wp-manga-chapter").each((_, el) => {
+            if (latestChapter > 0) return false;
+
+            const $ch = $chapters(el);
+            const $link = $ch.find("a").first();
+            const href = $link.attr("href");
+
+            const hasLock = $link.find(".fa-lock").length > 0;
+            const isPremium = $ch.hasClass("premium-block");
+
+            if (href && href !== "#" && !hasLock && !isPremium) {
+              const chapterText = $link.text().trim();
+              const chapterNum = this.extractChapterNumber(href) || 
+                                this.extractChapterNumberFromText(chapterText);
+            
+              if (chapterNum > latestChapter) {
+                latestChapter = chapterNum;
+                lastUpdatedText = $ch
+                  .find(".chapter-release-date")
+                  .text()
+                  .trim()
+                  .replace(/[<>]/g, "");
+              }
+            }
           });
 
-          chaptersHtml = response.ok ? await response.text() : seriesHtml;
-        } catch {
-          chaptersHtml = seriesHtml;
-        }
-
-        const $chapters = cheerio.load(chaptersHtml);
-
-        $chapters("li.wp-manga-chapter").each((_, el) => {
-          if (latestChapter > 0) return false;
-
-          const $ch = $chapters(el);
-          const $link = $ch.find("a").first();
-          const href = $link.attr("href");
-
-          const hasLock = $link.find(".fa-lock").length > 0;
-          const isPremium = $ch.hasClass("premium-block");
-
-          if (href && href !== "#" && !hasLock && !isPremium) {
-            const chapterText = $link.text().trim();
-            const chapterNum = this.extractChapterNumber(href) || 
-                              this.extractChapterNumberFromText(chapterText);
-            
-            if (chapterNum > latestChapter) {
-              latestChapter = chapterNum;
-              lastUpdatedText = $ch
-                .find(".chapter-release-date")
-                .text()
-                .trim()
-                .replace(/[<>]/g, "");
+          let lastUpdatedTimestamp: number | undefined;
+          if (lastUpdatedText) {
+            try {
+              const parsedDate = new Date(lastUpdatedText);
+              if (!isNaN(parsedDate.getTime())) {
+                lastUpdatedTimestamp = parsedDate.getTime();
+              }
+            } catch {
+              // Ignore date parse errors
             }
           }
-        });
 
-        let lastUpdatedTimestamp: number | undefined;
-        if (lastUpdatedText) {
-          try {
-            const parsedDate = new Date(lastUpdatedText);
-            if (!isNaN(parsedDate.getTime())) {
-              lastUpdatedTimestamp = parsedDate.getTime();
-            }
-          } catch {
-            // Ignore date parse errors
-          }
+          return {
+            id: series.id,
+            title: series.title,
+            url: series.url,
+            coverImage: series.coverImage,
+            latestChapter,
+            lastUpdated: lastUpdatedText,
+            lastUpdatedTimestamp,
+            rating: series.rating,
+          };
+        } catch (error) {
+          console.error(
+            `[Spider Scans] Failed to fetch chapter list for ${series.title}:`,
+            error
+          );
+          return {
+            id: series.id,
+            title: series.title,
+            url: series.url,
+            coverImage: series.coverImage,
+            latestChapter: 0,
+            lastUpdated: "",
+            rating: series.rating,
+          };
         }
-
-        results.push({
-          id: series.id,
-          title: series.title,
-          url: series.url,
-          coverImage: series.coverImage,
-          latestChapter,
-          lastUpdated: lastUpdatedText,
-          lastUpdatedTimestamp,
-          rating: series.rating,
-        });
-      } catch (error) {
-        console.error(
-          `[Spider Scans] Failed to fetch chapter list for ${series.title}:`,
-          error
-        );
-        results.push({
-          id: series.id,
-          title: series.title,
-          url: series.url,
-          coverImage: series.coverImage,
-          latestChapter: 0,
-          lastUpdated: "",
-          rating: series.rating,
-        });
-      }
-    }
+      },
+    );
 
     return results;
   }

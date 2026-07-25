@@ -2,6 +2,7 @@
 import * as cheerio from "cheerio";
 import { BaseScraper } from "./base";
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
+import { mapWithConcurrencyLimit, SEARCH_DETAIL_FETCH_CONCURRENCY } from "@/lib/utils/concurrency";
 
 export class PhiliascansScraper extends BaseScraper {
   private readonly BASE_URL = "https://philiascans.org";
@@ -208,56 +209,59 @@ export class PhiliascansScraper extends BaseScraper {
 
       const limitedSeries = matchedSeries.slice(0, 5);
 
-      const results: SearchResult[] = [];
-      for (const series of limitedSeries) {
-        try {
-          const seriesHtml = await this.fetchWithRetry(series.url);
-          const $series = cheerio.load(seriesHtml);
+      const results = await mapWithConcurrencyLimit(
+        limitedSeries,
+        SEARCH_DETAIL_FETCH_CONCURRENCY,
+        async (series): Promise<SearchResult> => {
+          try {
+            const seriesHtml = await this.fetchWithRetry(series.url);
+            const $series = cheerio.load(seriesHtml);
 
-          let latestChapter = 0;
+            let latestChapter = 0;
 
-          $series(".list-body-hh ul li.item").each((_, el) => {
-            const $ch = $series(el);
-            const $link = $ch.find("a").first();
-            const href = $link.attr("href");
+            $series(".list-body-hh ul li.item").each((_, el) => {
+              const $ch = $series(el);
+              const $link = $ch.find("a").first();
+              const href = $link.attr("href");
 
-            if (href && href !== "#" && !$ch.hasClass("premium-block")) {
-              const dataChapter = $ch.attr("data-chapter");
-              if (dataChapter) {
-                const match = dataChapter.match(/Chapter\s+(\d+(?:\.\d+)?)/i);
-                const num = match ? parseFloat(match[1]) : 0;
-                if (num > latestChapter) {
-                  latestChapter = num;
+              if (href && href !== "#" && !$ch.hasClass("premium-block")) {
+                const dataChapter = $ch.attr("data-chapter");
+                if (dataChapter) {
+                  const match = dataChapter.match(/Chapter\s+(\d+(?:\.\d+)?)/i);
+                  const num = match ? parseFloat(match[1]) : 0;
+                  if (num > latestChapter) {
+                    latestChapter = num;
+                  }
                 }
               }
-            }
-          });
+            });
 
-          results.push({
-            id: series.id,
-            title: series.title,
-            url: series.url,
-            coverImage: series.coverImage,
-            latestChapter,
-            lastUpdated: "",
-            rating: series.rating,
-          });
-        } catch (error) {
-          console.error(
-            `[Philia Scans] Failed to fetch chapter list for ${series.title}:`,
-            error
-          );
-          results.push({
-            id: series.id,
-            title: series.title,
-            url: series.url,
-            coverImage: series.coverImage,
-            latestChapter: 0,
-            lastUpdated: "",
-            rating: series.rating,
-          });
-        }
-      }
+            return {
+              id: series.id,
+              title: series.title,
+              url: series.url,
+              coverImage: series.coverImage,
+              latestChapter,
+              lastUpdated: "",
+              rating: series.rating,
+            };
+          } catch (error) {
+            console.error(
+              `[Philia Scans] Failed to fetch chapter list for ${series.title}:`,
+              error
+            );
+            return {
+              id: series.id,
+              title: series.title,
+              url: series.url,
+              coverImage: series.coverImage,
+              latestChapter: 0,
+              lastUpdated: "",
+              rating: series.rating,
+            };
+          }
+        },
+      );
 
       return results;
     } catch (error) {

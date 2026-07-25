@@ -2,6 +2,7 @@
 import * as cheerio from "cheerio";
 import { BaseScraper } from "./base";
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
+import { mapWithConcurrencyLimit, SEARCH_DETAIL_FETCH_CONCURRENCY } from "@/lib/utils/concurrency";
 
 export class MadaraScansScraper extends BaseScraper {
   private readonly BASE_URL = "https://madarascans.com";
@@ -162,82 +163,85 @@ export class MadaraScansScraper extends BaseScraper {
 
     const limitedSeries = matchedSeries.slice(0, 5);
 
-    const results: SearchResult[] = [];
-    for (const series of limitedSeries) {
-      try {
-        const seriesHtml = await this.fetchWithRetry(series.url);
-        const $series = cheerio.load(seriesHtml);
+    const results = await mapWithConcurrencyLimit(
+      limitedSeries,
+      SEARCH_DETAIL_FETCH_CONCURRENCY,
+      async (series): Promise<SearchResult> => {
+        try {
+          const seriesHtml = await this.fetchWithRetry(series.url);
+          const $series = cheerio.load(seriesHtml);
 
-        let latestChapter = 0;
-        let lastUpdatedText = "";
+          let latestChapter = 0;
+          let lastUpdatedText = "";
 
-        $series(".ch-list-grid .ch-item").each((_, el) => {
-          const $ch = $series(el);
+          $series(".ch-list-grid .ch-item").each((_, el) => {
+            const $ch = $series(el);
 
-          if ($ch.hasClass("locked")) {
-            return;
-          }
-
-          const $link = $ch.find("a.ch-main-anchor").first();
-          const href = $link.attr("href");
-
-          if (href && !href.includes("#")) {
-            const chapterNumAttr = $ch.attr("data-ch");
-            const chapterText = $link.find(".ch-num").text().trim();
-            const dateText = $link.find(".ch-date").text().trim();
-
-            let chapterNum: number;
-            if (chapterNumAttr) {
-              chapterNum = parseFloat(chapterNumAttr);
-            } else {
-              chapterNum = this.extractChapterNumber(chapterText);
+            if ($ch.hasClass("locked")) {
+              return;
             }
 
-            if (chapterNum > latestChapter) {
-              latestChapter = chapterNum;
-              lastUpdatedText = dateText;
-            }
-          }
-        });
+            const $link = $ch.find("a.ch-main-anchor").first();
+            const href = $link.attr("href");
 
-        let lastUpdatedTimestamp: number | undefined;
-        if (lastUpdatedText) {
-          try {
-            const parsedDate = new Date(lastUpdatedText);
-            if (!isNaN(parsedDate.getTime())) {
-              lastUpdatedTimestamp = parsedDate.getTime();
+            if (href && !href.includes("#")) {
+              const chapterNumAttr = $ch.attr("data-ch");
+              const chapterText = $link.find(".ch-num").text().trim();
+              const dateText = $link.find(".ch-date").text().trim();
+
+              let chapterNum: number;
+              if (chapterNumAttr) {
+                chapterNum = parseFloat(chapterNumAttr);
+              } else {
+                chapterNum = this.extractChapterNumber(chapterText);
+              }
+
+              if (chapterNum > latestChapter) {
+                latestChapter = chapterNum;
+                lastUpdatedText = dateText;
+              }
             }
-          } catch {
-            // Ignore date parse errors
+          });
+
+          let lastUpdatedTimestamp: number | undefined;
+          if (lastUpdatedText) {
+            try {
+              const parsedDate = new Date(lastUpdatedText);
+              if (!isNaN(parsedDate.getTime())) {
+                lastUpdatedTimestamp = parsedDate.getTime();
+              }
+            } catch {
+              // Ignore date parse errors
+            }
           }
+
+          return {
+            id: series.id,
+            title: series.title,
+            url: series.url,
+            coverImage: series.coverImage,
+            latestChapter,
+            lastUpdated: lastUpdatedText,
+            lastUpdatedTimestamp,
+            rating: series.rating,
+          };
+        } catch (error) {
+          console.error(
+            `[MadaraScans] Failed to fetch chapter list for ${series.title}:`,
+            error
+          );
+          return {
+            id: series.id,
+            title: series.title,
+            url: series.url,
+            coverImage: series.coverImage,
+            latestChapter: 0,
+            lastUpdated: "",
+            rating: series.rating,
+          };
         }
-
-        results.push({
-          id: series.id,
-          title: series.title,
-          url: series.url,
-          coverImage: series.coverImage,
-          latestChapter,
-          lastUpdated: lastUpdatedText,
-          lastUpdatedTimestamp,
-          rating: series.rating,
-        });
-      } catch (error) {
-        console.error(
-          `[MadaraScans] Failed to fetch chapter list for ${series.title}:`,
-          error
-        );
-        results.push({
-          id: series.id,
-          title: series.title,
-          url: series.url,
-          coverImage: series.coverImage,
-          latestChapter: 0,
-          lastUpdated: "",
-          rating: series.rating,
-        });
-      }
-    }
+      },
+    );
 
     return results;
   }

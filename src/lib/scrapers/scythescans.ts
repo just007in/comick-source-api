@@ -2,6 +2,7 @@
 import * as cheerio from "cheerio";
 import { BaseScraper } from "./base";
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
+import { mapWithConcurrencyLimit, SEARCH_DETAIL_FETCH_CONCURRENCY } from "@/lib/utils/concurrency";
 
 export class ScytheScansScraper extends BaseScraper {
   private readonly BASE_URL = "https://scythescans.com";
@@ -156,56 +157,59 @@ export class ScytheScansScraper extends BaseScraper {
 
     const limitedSeries = matchedSeries.slice(0, 5);
 
-    const results: SearchResult[] = [];
-    for (const series of limitedSeries) {
-      try {
-        const chapters = await this.getChapterList(series.url);
+    const results = await mapWithConcurrencyLimit(
+      limitedSeries,
+      SEARCH_DETAIL_FETCH_CONCURRENCY,
+      async (series): Promise<SearchResult> => {
+        try {
+          const chapters = await this.getChapterList(series.url);
 
-        let latestChapterNumber = 0;
-        let lastUpdatedText = "";
+          let latestChapterNumber = 0;
+          let lastUpdatedText = "";
 
-        if (chapters.length > 0) {
-          const latestChapter = chapters[chapters.length - 1];
-          latestChapterNumber = latestChapter.number;
-          lastUpdatedText = latestChapter.lastUpdated || "";
-        }
-
-        let lastUpdatedTimestamp: number | undefined;
-        if (lastUpdatedText) {
-          try {
-            const parsedDate = new Date(lastUpdatedText);
-            if (!isNaN(parsedDate.getTime())) {
-              lastUpdatedTimestamp = parsedDate.getTime();
-            }
-          } catch {
-            // Ignore date parse errors
+          if (chapters.length > 0) {
+            const latestChapter = chapters[chapters.length - 1];
+            latestChapterNumber = latestChapter.number;
+            lastUpdatedText = latestChapter.lastUpdated || "";
           }
-        }
 
-        results.push({
-          id: series.id,
-          title: series.title,
-          url: series.url,
-          coverImage: series.coverImage,
-          latestChapter: latestChapterNumber,
-          lastUpdated: lastUpdatedText,
-          lastUpdatedTimestamp,
-        });
-      } catch (error) {
-        console.error(
-          `[ScytheScans] Failed to fetch chapter list for ${series.title}:`,
-          error
-        );
-        results.push({
-          id: series.id,
-          title: series.title,
-          url: series.url,
-          coverImage: series.coverImage,
-          latestChapter: 0,
-          lastUpdated: "",
-        });
-      }
-    }
+          let lastUpdatedTimestamp: number | undefined;
+          if (lastUpdatedText) {
+            try {
+              const parsedDate = new Date(lastUpdatedText);
+              if (!isNaN(parsedDate.getTime())) {
+                lastUpdatedTimestamp = parsedDate.getTime();
+              }
+            } catch {
+              // Ignore date parse errors
+            }
+          }
+
+          return {
+            id: series.id,
+            title: series.title,
+            url: series.url,
+            coverImage: series.coverImage,
+            latestChapter: latestChapterNumber,
+            lastUpdated: lastUpdatedText,
+            lastUpdatedTimestamp,
+          };
+        } catch (error) {
+          console.error(
+            `[ScytheScans] Failed to fetch chapter list for ${series.title}:`,
+            error
+          );
+          return {
+            id: series.id,
+            title: series.title,
+            url: series.url,
+            coverImage: series.coverImage,
+            latestChapter: 0,
+            lastUpdated: "",
+          };
+        }
+      },
+    );
 
     return results;
   }

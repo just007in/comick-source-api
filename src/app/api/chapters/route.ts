@@ -1,7 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getScraper, getScraperByName } from "@/lib/scrapers";
+import { BaseScraper } from "@/lib/scrapers/base";
+import { ScrapedChapter } from "@/types";
 
-export const runtime = "edge";
+// Node runtime (not edge) - this deployment is a dedicated, self-hosted
+// server rather than Vercel's distributed edge network, and the scraper
+// layer's disk-based fetch cache (see BaseScraper.fetchWithRetry) needs
+// node:fs, which the edge runtime doesn't provide.
+export const runtime = "nodejs";
+
+// Same budget as /api/search's per-scraper timeout - without this, a site
+// that never responds (rather than erroring outright) hangs
+// scraper.getChapterList() indefinitely, bounded only by the platform's own
+// function execution deadline instead of something we control.
+const SCRAPER_TIMEOUT_MS = 20000;
+
+async function getChapterListWithTimeout(
+  scraper: BaseScraper,
+  url: string,
+  timeoutMs: number,
+): Promise<ScrapedChapter[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await Promise.race([
+      scraper.getChapterList(url),
+      new Promise<never>((_, reject) => {
+        controller.signal.addEventListener("abort", () => {
+          reject(new Error(`Timeout after ${timeoutMs}ms`));
+        });
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +67,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const chapters = await scraper.getChapterList(url);
+    const chapters = await getChapterListWithTimeout(scraper, url, SCRAPER_TIMEOUT_MS);
 
     return NextResponse.json({
       chapters,
