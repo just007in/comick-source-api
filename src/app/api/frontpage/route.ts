@@ -5,7 +5,11 @@ import {
   getFrontpageSourceIds,
 } from "@/lib/frontpages";
 
-export const runtime = "edge";
+// Node runtime (not edge) - this deployment is a dedicated, self-hosted
+// server rather than Vercel's distributed edge network, and the scraper
+// layer's disk-based fetch cache (see BaseScraper.fetchWithRetry) needs
+// node:fs, which the edge runtime doesn't provide.
+export const runtime = "nodejs";
 
 // i'm not entirely sure that this feature is needed, 
 // but i'll add it for now due to the request from a user

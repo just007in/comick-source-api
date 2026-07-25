@@ -2,9 +2,14 @@
 import * as cheerio from "cheerio";
 import { BaseScraper } from "./base";
 import { ScrapedChapter, SearchResult } from "@/types";
+import { withDiskCache } from "@/lib/utils/disk-cache";
 
 export class WeebCentralScraper extends BaseScraper {
   protected override async fetchWithRetry(url: string): Promise<string> {
+    return withDiskCache(url, () => this.fetchDirect(url));
+  }
+
+  private async fetchDirect(url: string): Promise<string> {
     // Direct fetch with proper headers (works in edge runtime)
     const response = await fetch(url, {
       method: "GET",

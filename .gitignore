@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# disk-backed scraper fetch cache (see src/lib/utils/disk-cache.ts)
+/.cache/

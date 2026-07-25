@@ -1,4 +1,5 @@
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
+import { withDiskCache } from "@/lib/utils/disk-cache";
 
 interface ScraperConfig {
   retryAttempts: number;
@@ -28,10 +29,17 @@ export abstract class BaseScraper {
   abstract getChapterList(mangaUrl: string): Promise<ScrapedChapter[]>;
   abstract search(query: string): Promise<SearchResult[]>;
 
+  // Cached on disk for 12 hours, keyed by URL alone - `retries` only
+  // affects how a cache *miss* is satisfied, not what's being fetched, so
+  // it deliberately isn't part of the cache key (see withDiskCache).
   protected async fetchWithRetry(
     url: string,
     retries = this.config.retryAttempts,
   ): Promise<string> {
+    return withDiskCache(url, () => this.fetchWithoutCache(url, retries));
+  }
+
+  private async fetchWithoutCache(url: string, retries: number): Promise<string> {
     for (let i = 0; i <= retries; i++) {
       try {
         const response = await fetch(url, {

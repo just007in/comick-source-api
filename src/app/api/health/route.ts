@@ -5,7 +5,11 @@ import {
   SourceHealthResult,
 } from "@/lib/utils/source-health";
 
-export const runtime = "edge";
+// Node runtime (not edge) - this deployment is a dedicated, self-hosted
+// server rather than Vercel's distributed edge network, and the scraper
+// layer's disk-based fetch cache (see BaseScraper.fetchWithRetry) needs
+// node:fs, which the edge runtime doesn't provide.
+export const runtime = "nodejs";
 
 // Cache health results for 5 minutes to avoid hammering sources
 let cachedResults: {

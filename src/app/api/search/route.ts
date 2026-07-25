@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getScraperByName, getAllScrapers } from "@/lib/scrapers";
 import { BaseScraper } from "@/lib/scrapers/base";
 
-export const runtime = "edge";
+// Node runtime (not edge) - this deployment is a dedicated, self-hosted
+// server rather than Vercel's distributed edge network, and the scraper
+// layer's disk-based fetch cache (see BaseScraper.fetchWithRetry) needs
+// node:fs, which the edge runtime doesn't provide.
+export const runtime = "nodejs";
 
 const SCRAPER_TIMEOUT_MS = 20000;
 

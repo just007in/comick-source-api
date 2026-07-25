@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
+// Node runtime (not edge) - this deployment is a dedicated, self-hosted
+// server rather than Vercel's distributed edge network, so edge's fast
+// distributed cold-starts don't apply here; kept consistent with the other
+// routes, which need Node for the scraper layer's disk-based fetch cache.
+export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
