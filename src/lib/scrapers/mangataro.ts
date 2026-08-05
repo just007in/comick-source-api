@@ -52,19 +52,15 @@ export class MangataroScraper extends BaseScraper {
 
       const apiUrl = `${this.BASE_URL}/auth/manga-chapters?manga_id=${mangaId}&offset=0&limit=500&order=DESC&_t=${token}&_ts=${timestamp}`;
 
-      const response = await fetch(apiUrl, {
-        headers: {
-          "User-Agent": this.config.userAgent,
-          Referer: mangaUrl,
-          Accept: "application/json",
-        },
+      // cache: false - the URL embeds a per-call token/timestamp, so a
+      // cache entry for it could never be read back.
+      const data = await this.fetchJsonWithRetry<{
+        success?: boolean;
+        chapters?: { id: string; chapter: string; title?: string; url: string }[];
+      }>(apiUrl, {
+        headers: { Referer: mangaUrl },
+        cache: false,
       });
-
-      if (!response.ok) {
-        return chapters;
-      }
-
-      const data = await response.json();
 
       if (data.success && Array.isArray(data.chapters)) {
         for (const chapter of data.chapters) {
@@ -357,31 +353,29 @@ export class MangataroScraper extends BaseScraper {
 
           const apiUrl = `${this.BASE_URL}/auth/manga-chapters?manga_id=${mangaId}&offset=0&limit=1&order=DESC&_t=${token}&_ts=${timestamp}`;
 
-          const response = await fetch(apiUrl, {
-            headers: {
-              "User-Agent": this.config.userAgent,
-              Referer: result.url,
-              Accept: "application/json",
-            },
+          // cache: false - the URL embeds a per-call token/timestamp, so a
+          // cache entry for it could never be read back.
+          const data = await this.fetchJsonWithRetry<{
+            success?: boolean;
+            chapters?: { chapter: string; date: string }[];
+          }>(apiUrl, {
+            headers: { Referer: result.url },
+            cache: false,
           });
 
-          if (response.ok) {
-            const data = await response.json();
+          if (
+            data.success &&
+            Array.isArray(data.chapters) &&
+            data.chapters.length > 0
+          ) {
+            const latestChapter = parseFloat(data.chapters[0].chapter);
+            const lastUpdated = data.chapters[0].date;
 
-            if (
-              data.success &&
-              Array.isArray(data.chapters) &&
-              data.chapters.length > 0
-            ) {
-              const latestChapter = parseFloat(data.chapters[0].chapter);
-              const lastUpdated = data.chapters[0].date;
-
-              return {
-                ...result,
-                latestChapter,
-                lastUpdated,
-              };
-            }
+            return {
+              ...result,
+              latestChapter,
+              lastUpdated,
+            };
           }
 
           return result;

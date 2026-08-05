@@ -31,12 +31,11 @@ export class ComixScraper extends BaseScraper {
     const hashId = urlMatch[1].split('-')[0];
 
     try {
-      const response = await fetch(`${this.apiBase}/manga/${hashId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(
+        await this.fetchWithRetry(`${this.apiBase}/manga/${hashId}`, {
+          headers: { Accept: 'application/json' },
+        }),
+      );
 
       return {
         title: data.result?.title || hashId,
@@ -62,27 +61,23 @@ export class ComixScraper extends BaseScraper {
     const hashId = urlMatch[1].split('-')[0];
 
     try {
-      const mangaResponse = await fetch(`${this.apiBase}/manga/${hashId}`);
-      if (!mangaResponse.ok) {
-        throw new Error(`HTTP ${mangaResponse.status}: ${mangaResponse.statusText}`);
-      }
-
-      const mangaData = await mangaResponse.json();
+      const mangaData = JSON.parse(
+        await this.fetchWithRetry(`${this.apiBase}/manga/${hashId}`, {
+          headers: { Accept: 'application/json' },
+        }),
+      );
       const slug = mangaData.result?.slug || '';
 
       let currentPage = 1;
       let hasMorePages = true;
 
       while (hasMorePages) {
-        const response = await fetch(
-          `${this.apiBase}/manga/${hashId}/chapters?order[number]=desc&limit=100&page=${currentPage}`
+        const data = JSON.parse(
+          await this.fetchWithRetry(
+            `${this.apiBase}/manga/${hashId}/chapters?order[number]=desc&limit=100&page=${currentPage}`,
+            { headers: { Accept: 'application/json' } },
+          ),
         );
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
 
         if (data.result?.items && Array.isArray(data.result.items)) {
           for (const chapter of data.result.items) {
@@ -139,13 +134,11 @@ export class ComixScraper extends BaseScraper {
     const results: SearchResult[] = [];
 
     try {
-      const response = await fetch(searchUrl);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(
+        await this.fetchWithRetry(searchUrl, {
+          headers: { Accept: 'application/json' },
+        }),
+      );
 
       if (data.result?.items && Array.isArray(data.result.items)) {
         for (const manga of data.result.items) {

@@ -25,23 +25,18 @@ export class MangaCloudScraper extends BaseScraper {
 
   async search(query: string): Promise<SearchResult[]> {
     try {
-      const response = await fetch(`${this.API_URL}/comic/browse`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "*/*",
-          "Origin": this.BASE_URL,
-          "Referer": `${this.BASE_URL}/`,
-          "User-Agent": this.config.userAgent,
-        },
-        body: JSON.stringify({ title: query }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(
+        await this.fetchWithRetry(`${this.API_URL}/comic/browse`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "*/*",
+            "Origin": this.BASE_URL,
+            "Referer": `${this.BASE_URL}/`,
+          },
+          body: JSON.stringify({ title: query }),
+        }),
+      );
       const results: SearchResult[] = [];
 
       if (data.data && Array.isArray(data.data)) {
@@ -128,20 +123,15 @@ export class MangaCloudScraper extends BaseScraper {
     const comicId = urlMatch[1];
 
     try {
-      const response = await fetch(`${this.API_URL}/comic/${comicId}`, {
-        headers: {
-          "Accept": "*/*",
-          "Origin": this.BASE_URL,
-          "Referer": `${this.BASE_URL}/`,
-          "User-Agent": this.config.userAgent,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(
+        await this.fetchWithRetry(`${this.API_URL}/comic/${comicId}`, {
+          headers: {
+            "Accept": "*/*",
+            "Origin": this.BASE_URL,
+            "Referer": `${this.BASE_URL}/`,
+          },
+        }),
+      );
       const chapters: ScrapedChapter[] = [];
 
       if (data.data && data.data.chapters && Array.isArray(data.data.chapters)) {

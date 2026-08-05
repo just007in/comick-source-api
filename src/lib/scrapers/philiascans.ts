@@ -146,23 +146,18 @@ export class PhiliascansScraper extends BaseScraper {
       formData.append("security", nonce);
       formData.append("search_query", query);
 
-      const response = await fetch(searchUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": this.config.userAgent,
-          Accept: "*/*",
-          "X-Requested-With": "XMLHttpRequest",
-          Referer: `${this.BASE_URL}/all-mangas/`,
-        },
-        body: formData.toString(),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(
+        await this.fetchWithRetry(searchUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            Accept: "*/*",
+            "X-Requested-With": "XMLHttpRequest",
+            Referer: `${this.BASE_URL}/all-mangas/`,
+          },
+          body: formData.toString(),
+        }),
+      );
       const matchedSeries: Array<{
         id: string;
         title: string;

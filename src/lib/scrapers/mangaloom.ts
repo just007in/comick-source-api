@@ -38,19 +38,16 @@ export class MangaloomScraper extends BaseScraper {
     const ajaxUrl = `${mangaUrl.replace(/\/$/, "")}/ajax/chapters/`;
 
     try {
-      const response = await fetch(ajaxUrl, {
-        method: "POST",
-        headers: {
-          "User-Agent": this.config.userAgent,
-          "X-Requested-With": "XMLHttpRequest",
-          Referer: mangaUrl,
-        },
-      });
-
       let html: string;
-      if (response.ok) {
-        html = await response.text();
-      } else {
+      try {
+        html = await this.fetchWithRetry(ajaxUrl, {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            Referer: mangaUrl,
+          },
+        });
+      } catch {
         console.log("[Mangaloom] AJAX failed, falling back to regular page");
         html = await this.fetchWithRetry(mangaUrl);
       }

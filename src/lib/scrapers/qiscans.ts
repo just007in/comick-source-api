@@ -72,20 +72,16 @@ export class QiScansScraper extends BaseScraper {
     try {
       const searchUrl = `${this.API_URL}/api/query?page=1&perPage=21&searchTerm=${encodeURIComponent(query)}&orderBy=createdAt`;
 
-      const response = await fetch(searchUrl, {
-        headers: {
-          "User-Agent": this.config.userAgent,
-          Accept: "application/json, text/plain, */*",
-          Origin: this.BASE_URL,
-          Referer: `${this.BASE_URL}/`,
+      const data = await this.fetchJsonWithRetry<{ posts?: QiScansPost[] }>(
+        searchUrl,
+        {
+          headers: {
+            Accept: "application/json, text/plain, */*",
+            Origin: this.BASE_URL,
+            Referer: `${this.BASE_URL}/`,
+          },
         },
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
+      );
       const posts: QiScansPost[] = data.posts || [];
 
       const limitedPosts = posts.slice(0, 5);
@@ -128,20 +124,16 @@ export class QiScansScraper extends BaseScraper {
 
     const searchUrl = `${this.API_URL}/api/query?page=1&perPage=10&searchTerm=${encodeURIComponent(titlePart)}&orderBy=createdAt`;
 
-    const response = await fetch(searchUrl, {
-      headers: {
-        "User-Agent": this.config.userAgent,
-        Accept: "application/json, text/plain, */*",
-        Origin: this.BASE_URL,
-        Referer: `${this.BASE_URL}/`,
+    const data = await this.fetchJsonWithRetry<{ posts?: QiScansPost[] }>(
+      searchUrl,
+      {
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          Origin: this.BASE_URL,
+          Referer: `${this.BASE_URL}/`,
+        },
       },
-    });
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
+    );
     const posts: QiScansPost[] = data.posts || [];
 
     const manga = posts.find((post) => post.slug === slug);
@@ -169,24 +161,20 @@ export class QiScansScraper extends BaseScraper {
 
       const chaptersUrl = `${this.API_URL}/api/v2/posts/${mangaId}/chapters?page=1&perPage=10000&sortOrder=desc&q=`;
 
-      const response = await fetch(chaptersUrl, {
-        headers: {
-          "User-Agent": this.config.userAgent,
-          Accept: "application/json, text/plain, */*",
-          "Accept-Language": "en-US,en;q=0.9",
-          Origin: this.BASE_URL,
-          Referer: `${this.BASE_URL}/`,
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "same-site",
+      const data = await this.fetchJsonWithRetry<{ data?: QiScansChapter[] }>(
+        chaptersUrl,
+        {
+          headers: {
+            Accept: "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            Origin: this.BASE_URL,
+            Referer: `${this.BASE_URL}/`,
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
+          },
         },
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
+      );
       const chapters: QiScansChapter[] = data.data || [];
 
       const slugMatch = mangaUrl.match(/\/series\/([^/]+)/);

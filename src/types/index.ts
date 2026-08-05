@@ -26,6 +26,22 @@ export interface SearchResult {
   followers?: string;
 }
 
+// Series-level metadata scraped from a source's own title record - the
+// /api/metadata endpoint's payload. Everything is optional except the list
+// fields (empty when the source has none): sources vary widely in what
+// their detail data exposes.
+export interface ScrapedMetadata {
+  title?: string;
+  description?: string;
+  status?: string;
+  tags: string[];
+  authors: string[];
+  releaseDate?: string; // ISO 8601
+  releaseYear?: number;
+  altTitles: string[];
+  coverImage?: string;
+}
+
 export type SourceType = "scanlator" | "aggregator";
 
 export interface SourceInfo {

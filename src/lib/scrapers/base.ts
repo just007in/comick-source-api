@@ -1,10 +1,24 @@
-import { ScrapedChapter, SearchResult, SourceType } from "@/types";
+import { ScrapedChapter, ScrapedMetadata, SearchResult, SourceType } from "@/types";
 import { withDiskCache } from "@/lib/utils/disk-cache";
 
 interface ScraperConfig {
   retryAttempts: number;
   downloadDelay: number;
   userAgent: string;
+}
+
+export interface FetchOptions {
+  method?: "GET" | "POST";
+  // Merged over the default browser-like headers, overriding on conflict -
+  // e.g. `Accept: "application/json"` for a JSON API, or a Referer a site
+  // requires.
+  headers?: Record<string, string>;
+  body?: string;
+  retries?: number;
+  // Set false for a request whose URL/body can never repeat (e.g. a
+  // per-call auth token baked into the URL) - a cache entry for it would
+  // never be read again, so skip writing one. Retries still apply.
+  cache?: boolean;
 }
 
 export abstract class BaseScraper {
@@ -29,20 +43,33 @@ export abstract class BaseScraper {
   abstract getChapterList(mangaUrl: string): Promise<ScrapedChapter[]>;
   abstract search(query: string): Promise<SearchResult[]>;
 
-  // Cached on disk for 12 hours, keyed by URL alone - `retries` only
-  // affects how a cache *miss* is satisfied, not what's being fetched, so
-  // it deliberately isn't part of the cache key (see withDiskCache).
+  // Cached on disk for 12 hours. The cache key is the URL plus, for a
+  // POST, the request body - Madara-style sites serve every series'
+  // chapter list from the same admin-ajax.php URL with the series in the
+  // form body, so the body is part of what's being fetched. Headers and
+  // `retries` deliberately aren't part of the key: they affect how a cache
+  // *miss* is satisfied, not which resource comes back (see withDiskCache).
   protected async fetchWithRetry(
     url: string,
-    retries = this.config.retryAttempts,
+    options: FetchOptions = {},
   ): Promise<string> {
-    return withDiskCache(url, () => this.fetchWithoutCache(url, retries));
+    if (options.cache === false) {
+      return this.fetchWithoutCache(url, options);
+    }
+    const cacheKey =
+      options.method === "POST" ? `${url}#${options.body ?? ""}` : url;
+    return withDiskCache(cacheKey, () => this.fetchWithoutCache(url, options));
   }
 
-  private async fetchWithoutCache(url: string, retries: number): Promise<string> {
+  private async fetchWithoutCache(
+    url: string,
+    options: FetchOptions,
+  ): Promise<string> {
+    const retries = options.retries ?? this.config.retryAttempts;
     for (let i = 0; i <= retries; i++) {
       try {
         const response = await fetch(url, {
+          method: options.method ?? "GET",
           headers: {
             "User-Agent": this.config.userAgent,
             Accept:
@@ -52,7 +79,9 @@ export abstract class BaseScraper {
             DNT: "1",
             Connection: "keep-alive",
             "Upgrade-Insecure-Requests": "1",
+            ...options.headers,
           },
+          body: options.body,
         });
 
         if (!response.ok) {
@@ -70,6 +99,20 @@ export abstract class BaseScraper {
     throw new Error("Failed to fetch after retries");
   }
 
+  // fetchWithRetry for JSON endpoints - same caching/retry behavior, with
+  // an Accept header a JSON API expects and the parse done here so callers
+  // don't repeat it.
+  protected async fetchJsonWithRetry<T>(
+    url: string,
+    options: FetchOptions = {},
+  ): Promise<T> {
+    const text = await this.fetchWithRetry(url, {
+      ...options,
+      headers: { Accept: "application/json", ...options.headers },
+    });
+    return JSON.parse(text) as T;
+  }
+
   protected async delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -85,6 +128,20 @@ export abstract class BaseScraper {
 
   getDescription(): string {
     return `${this.getName()} - ${this.getBaseUrl()}`;
+  }
+
+  // Optional capability: series-level metadata (tags, status, synopsis,
+  // release date, ...) scraped from the source's own title record, served
+  // by /api/metadata. A scraper that overrides getMetadata must also
+  // override supportsMetadata to return true - the route checks the flag
+  // first so unsupported sources get a clean 400 instead of a scrape
+  // attempt that can only throw.
+  supportsMetadata(): boolean {
+    return false;
+  }
+
+  getMetadata(url: string): Promise<ScrapedMetadata> {
+    throw new Error(`${this.getName()} does not support metadata (for ${url})`);
   }
 
   isClientOnly(): boolean {

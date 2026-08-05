@@ -51,22 +51,15 @@ export class SpiderScansScraper extends BaseScraper {
 
       let html: string;
       try {
-        const response = await fetch(ajaxUrl, {
+        html = await this.fetchWithRetry(ajaxUrl, {
           method: "POST",
           headers: {
-            "User-Agent": this.config.userAgent,
             Accept: "*/*",
             "Content-Type": "application/x-www-form-urlencoded",
             "X-Requested-With": "XMLHttpRequest",
             Referer: mangaUrl,
           },
         });
-
-        if (response.ok) {
-          html = await response.text();
-        } else {
-          html = mainHtml;
-        }
       } catch {
         html = mainHtml;
       }
@@ -207,17 +200,14 @@ export class SpiderScansScraper extends BaseScraper {
 
           let chaptersHtml: string;
           try {
-            const response = await fetch(ajaxUrl, {
+            chaptersHtml = await this.fetchWithRetry(ajaxUrl, {
               method: "POST",
               headers: {
-                "User-Agent": this.config.userAgent,
                 Accept: "*/*",
                 "X-Requested-With": "XMLHttpRequest",
                 Referer: series.url,
               },
             });
-
-            chaptersHtml = response.ok ? await response.text() : seriesHtml;
           } catch {
             chaptersHtml = seriesHtml;
           }

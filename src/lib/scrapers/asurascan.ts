@@ -1,44 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as cheerio from "cheerio";
-import { BaseScraper } from "./base";
+import { BaseScraper, FetchOptions } from "./base";
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
-import { withDiskCache } from "@/lib/utils/disk-cache";
 
 export class AsuraScanScraper extends BaseScraper {
   private readonly BASE_URL = "https://asurascans.com";
 
-  protected override async fetchWithRetry(url: string): Promise<string> {
-    return withDiskCache(url, () => this.fetchDirect(url));
-  }
-
-  private async fetchDirect(url: string): Promise<string> {
-    // Direct fetch with proper headers (works in edge runtime)
-    const response = await fetch(url, {
-      method: "GET",
+  // Every fetch against this Cloudflare-fronted site needs a full
+  // browser-like header fingerprint (its own UA/Referer, overriding the
+  // defaults) - injected here so the base class's disk cache and retries
+  // still apply.
+  protected override async fetchWithRetry(
+    url: string,
+    options: FetchOptions = {},
+  ): Promise<string> {
+    return super.fetchWithRetry(url, {
+      ...options,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
         "Accept-Encoding": "gzip, deflate, br",
         Referer: "https://asurascans.com/",
-        DNT: "1",
-        Connection: "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "same-origin",
         "Cache-Control": "no-cache",
         Pragma: "no-cache",
+        ...options.headers,
       },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.text();
   }
 
   getName(): string {

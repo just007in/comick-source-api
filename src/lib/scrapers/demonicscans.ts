@@ -91,20 +91,13 @@ export class DemonicscansScraper extends BaseScraper {
     try {
       const searchUrl = `${this.BASE_URL}/search.php?manga=${encodeURIComponent(query)}`;
 
-      const response = await fetch(searchUrl, {
+      const html = await this.fetchWithRetry(searchUrl, {
         headers: {
           accept: "*/*",
           "accept-language": "en-US,en;q=0.9",
           referer: `${this.BASE_URL}/`,
-          "User-Agent": this.config.userAgent,
         },
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const html = await response.text();
       const $ = cheerio.load(html);
 
       const matchedSeries: Array<{

@@ -45,10 +45,9 @@ export class RdscansScraper extends BaseScraper {
     try {
       const ajaxUrl = `${mangaUrl}ajax/chapters/`;
 
-      const response = await fetch(ajaxUrl, {
+      const html = await this.fetchWithRetry(ajaxUrl, {
         method: "POST",
         headers: {
-          "User-Agent": this.config.userAgent,
           Accept: "*/*",
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
           Origin: this.BASE_URL,
@@ -56,12 +55,6 @@ export class RdscansScraper extends BaseScraper {
           "X-Requested-With": "XMLHttpRequest",
         },
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const html = await response.text();
       const $ = cheerio.load(html);
 
       $("li.wp-manga-chapter").each((_: number, element: any) => {

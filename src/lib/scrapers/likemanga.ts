@@ -38,20 +38,13 @@ export class LikeMangaScraper extends BaseScraper {
     const ajaxUrl = `${mangaUrl.replace(/\/$/, "")}/ajax/chapters/`;
 
     try {
-      const response = await fetch(ajaxUrl, {
+      const ajaxHtml = await this.fetchWithRetry(ajaxUrl, {
         method: "POST",
         headers: {
-          "User-Agent": this.config.userAgent,
           "X-Requested-With": "XMLHttpRequest",
           Referer: mangaUrl,
         },
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const ajaxHtml = await response.text();
       const $ = cheerio.load(ajaxHtml);
 
       $(".wp-manga-chapter").each((_: number, element: any) => {

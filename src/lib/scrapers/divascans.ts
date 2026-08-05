@@ -114,18 +114,11 @@ export class DivaScansScraper extends BaseScraper {
   async search(query: string): Promise<SearchResult[]> {
     const searchUrl = `${this.API_URL}/api/query?page=1&perPage=5&searchTerm=${encodeURIComponent(query)}`;
 
-    const response = await fetch(searchUrl, {
+    const data = await this.fetchJsonWithRetry<DivaSearchResponse>(searchUrl, {
       headers: {
-        "User-Agent": this.config.userAgent,
         Accept: "application/json",
       },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data: DivaSearchResponse = await response.json();
 
     return data.posts.map((post) => {
       let latestChapter = 0;

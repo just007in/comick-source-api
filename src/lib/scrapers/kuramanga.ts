@@ -124,20 +124,13 @@ export class KuramangaScraper extends BaseScraper {
     const searchUrl = `${this.BASE_URL}/search?name=${encodeURIComponent(query)}&offset=0&ajax=1`;
 
     try {
-      const response = await fetch(searchUrl, {
+      const data = await this.fetchJsonWithRetry<{ data?: any[] }>(searchUrl, {
         headers: {
-          "User-Agent": this.config.userAgent,
           Accept: "application/json, text/plain, */*",
           "X-Requested-With": "XMLHttpRequest",
           Referer: `${this.BASE_URL}/search?name=${encodeURIComponent(query)}`,
         },
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       const searchResults = data.data || [];
 
       const limitedResults = searchResults.slice(0, 5);

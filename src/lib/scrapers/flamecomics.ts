@@ -84,12 +84,7 @@ export class FlameComicsScraper extends BaseScraper {
   async search(query: string): Promise<SearchResult[]> {
     try {
       // Fetch the series list from the API
-      const response = await fetch(this.API_URL);
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
-
-      const seriesList = await response.json();
+      const seriesList = await this.fetchJsonWithRetry<unknown>(this.API_URL);
 
       if (!Array.isArray(seriesList)) {
         throw new Error("Invalid API response format");

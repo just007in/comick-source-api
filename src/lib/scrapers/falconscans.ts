@@ -31,12 +31,12 @@ export class FalconscansScraper extends BaseScraper {
     const slug = urlMatch[1];
 
     try {
-      const response = await fetch(`${this.apiBase}/manga/${slug}?chapterPage=1&chapterLimit=1`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(
+        await this.fetchWithRetry(
+          `${this.apiBase}/manga/${slug}?chapterPage=1&chapterLimit=1`,
+          { headers: { Accept: 'application/json' } },
+        ),
+      );
 
       return {
         title: data.title,
@@ -62,13 +62,12 @@ export class FalconscansScraper extends BaseScraper {
     const slug = urlMatch[1];
 
     try {
-      const response = await fetch(`${this.apiBase}/manga/${slug}?chapterPage=1&chapterLimit=1000`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(
+        await this.fetchWithRetry(
+          `${this.apiBase}/manga/${slug}?chapterPage=1&chapterLimit=1000`,
+          { headers: { Accept: 'application/json' } },
+        ),
+      );
 
       if (data.chapters && Array.isArray(data.chapters)) {
         for (const chapter of data.chapters) {
@@ -111,13 +110,11 @@ export class FalconscansScraper extends BaseScraper {
     const results: SearchResult[] = [];
 
     try {
-      const response = await fetch(searchUrl);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = JSON.parse(
+        await this.fetchWithRetry(searchUrl, {
+          headers: { Accept: 'application/json' },
+        }),
+      );
 
       if (data.data && Array.isArray(data.data)) {
         for (const manga of data.data) {
@@ -126,22 +123,24 @@ export class FalconscansScraper extends BaseScraper {
           let lastUpdated = '';
 
           try {
-            const chaptersResponse = await fetch(`${this.apiBase}/manga/${manga.slug}?chapterPage=1&chapterLimit=1`);
-            if (chaptersResponse.ok) {
-              const chaptersData = await chaptersResponse.json();
-              if (chaptersData.chapters && Array.isArray(chaptersData.chapters) && chaptersData.chapters.length > 0) {
-                latestChapter = Math.max(...chaptersData.chapters.map((ch: any) => ch.number));
+            const chaptersData = JSON.parse(
+              await this.fetchWithRetry(
+                `${this.apiBase}/manga/${manga.slug}?chapterPage=1&chapterLimit=1`,
+                { headers: { Accept: 'application/json' } },
+              ),
+            );
+            if (chaptersData.chapters && Array.isArray(chaptersData.chapters) && chaptersData.chapters.length > 0) {
+              latestChapter = Math.max(...chaptersData.chapters.map((ch: any) => ch.number));
 
-                const sortedChapters = [...chaptersData.chapters].sort((a: any, b: any) => {
-                  const dateA = new Date(a.createdAt).getTime();
-                  const dateB = new Date(b.createdAt).getTime();
-                  return dateB - dateA;
-                });
+              const sortedChapters = [...chaptersData.chapters].sort((a: any, b: any) => {
+                const dateA = new Date(a.createdAt).getTime();
+                const dateB = new Date(b.createdAt).getTime();
+                return dateB - dateA;
+              });
 
-                if (sortedChapters.length > 0) {
-                  lastUpdatedTimestamp = new Date(sortedChapters[0].createdAt).getTime();
-                  lastUpdated = new Date(sortedChapters[0].createdAt).toLocaleDateString();
-                }
+              if (sortedChapters.length > 0) {
+                lastUpdatedTimestamp = new Date(sortedChapters[0].createdAt).getTime();
+                lastUpdated = new Date(sortedChapters[0].createdAt).toLocaleDateString();
               }
             }
           } catch {

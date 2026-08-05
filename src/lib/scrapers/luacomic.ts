@@ -84,20 +84,14 @@ export class LuaComicScraper extends BaseScraper {
 
     try {
       const searchUrl = `${this.API_URL}/query?page=1&perPage=5&series_type=Comic&query_string=${encodeURIComponent(seriesSlug)}&orderBy=created_at&adult=true&status=All&tags_ids=%5B%5D`;
-      const response = await fetch(searchUrl, {
+      const data = await this.fetchJsonWithRetry<
+        LuaComicApiResponse<LuaComicSearchResult>
+      >(searchUrl, {
         headers: {
           Accept: "application/json, text/plain, */*",
-          "User-Agent": this.config.userAgent,
           Referer: `${this.BASE_URL}/`,
         },
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data: LuaComicApiResponse<LuaComicSearchResult> =
-        await response.json();
 
       if (data.data && data.data.length > 0) {
         const series = data.data.find((s) => s.series_slug === seriesSlug);
@@ -131,20 +125,14 @@ export class LuaComicScraper extends BaseScraper {
       const seriesSlug = urlMatch[1];
 
       const searchUrl = `${this.API_URL}/query?page=1&perPage=5&series_type=Comic&query_string=${encodeURIComponent(seriesSlug)}&orderBy=created_at&adult=true&status=All&tags_ids=%5B%5D`;
-      const searchResponse = await fetch(searchUrl, {
+      const searchData = await this.fetchJsonWithRetry<
+        LuaComicApiResponse<LuaComicSearchResult>
+      >(searchUrl, {
         headers: {
           Accept: "application/json, text/plain, */*",
-          "User-Agent": this.config.userAgent,
           Referer: `${this.BASE_URL}/`,
         },
       });
-
-      if (!searchResponse.ok) {
-        throw new Error(`HTTP ${searchResponse.status}`);
-      }
-
-      const searchData: LuaComicApiResponse<LuaComicSearchResult> =
-        await searchResponse.json();
       const series = searchData.data.find((s) => s.series_slug === seriesSlug);
 
       if (!series) {
@@ -159,20 +147,14 @@ export class LuaComicScraper extends BaseScraper {
 
       while (hasMorePages) {
         const chaptersUrl = `${this.API_URL}/chapter/query?page=${currentPage}&perPage=${perPage}&query=&order=desc&series_id=${seriesId}`;
-        const chaptersResponse = await fetch(chaptersUrl, {
+        const chaptersData = await this.fetchJsonWithRetry<
+          LuaComicApiResponse<LuaComicChapter>
+        >(chaptersUrl, {
           headers: {
             Accept: "application/json, text/plain, */*",
-            "User-Agent": this.config.userAgent,
             Referer: `${this.BASE_URL}/`,
           },
         });
-
-        if (!chaptersResponse.ok) {
-          throw new Error(`HTTP ${chaptersResponse.status}`);
-        }
-
-        const chaptersData: LuaComicApiResponse<LuaComicChapter> =
-          await chaptersResponse.json();
 
         for (const chapter of chaptersData.data) {
           if (chapter.price > 0) {
@@ -220,20 +202,14 @@ export class LuaComicScraper extends BaseScraper {
   async search(query: string): Promise<SearchResult[]> {
     try {
       const searchUrl = `${this.API_URL}/query?page=1&perPage=20&series_type=Comic&query_string=${encodeURIComponent(query)}&orderBy=created_at&adult=true&status=All&tags_ids=%5B%5D`;
-      const response = await fetch(searchUrl, {
+      const data = await this.fetchJsonWithRetry<
+        LuaComicApiResponse<LuaComicSearchResult>
+      >(searchUrl, {
         headers: {
           Accept: "application/json, text/plain, */*",
-          "User-Agent": this.config.userAgent,
           Referer: `${this.BASE_URL}/`,
         },
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data: LuaComicApiResponse<LuaComicSearchResult> =
-        await response.json();
 
       const results: SearchResult[] = [];
 

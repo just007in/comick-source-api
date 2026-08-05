@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseScraper } from './base';
+import { withDiskCache } from '@/lib/utils/disk-cache';
 import { ScrapedChapter, SearchResult, SourceType } from '@/types';
 
 export class WeebdexScraper extends BaseScraper {
@@ -23,24 +24,31 @@ export class WeebdexScraper extends BaseScraper {
     return url.includes('weebdex.org');
   }
 
+  // Deliberately not fetchWithRetry: this API rate-limits aggressively, and
+  // a 429 needs its own exponential backoff rather than the base class's
+  // uniform treat-as-failure retry. Still cached through the same disk
+  // cache so repeat lookups skip the rate limit entirely.
   private async fetchApi(url: string, retries = 3): Promise<any> {
-    for (let i = 0; i <= retries; i++) {
-      const response = await fetch(url);
+    const text = await withDiskCache(url, async () => {
+      for (let i = 0; i <= retries; i++) {
+        const response = await fetch(url);
 
-      if (response.status === 429) {
-        const waitTime = Math.min(2000 * Math.pow(2, i), 10000);
-        await this.delay(waitTime);
-        continue;
+        if (response.status === 429) {
+          const waitTime = Math.min(2000 * Math.pow(2, i), 10000);
+          await this.delay(waitTime);
+          continue;
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.text();
       }
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return await response.json();
-    }
-
-    throw new Error('Rate limited: Too many requests');
+      throw new Error('Rate limited: Too many requests');
+    });
+    return JSON.parse(text);
   }
 
   async extractMangaInfo(url: string): Promise<{ title: string; id: string }> {

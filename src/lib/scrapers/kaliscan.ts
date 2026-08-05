@@ -50,19 +50,17 @@ export class KaliScanScraper extends BaseScraper {
 
       const apiUrl = `${this.BASE_URL}/service/backend/chaplist/?manga_id=${mangaId}&manga_name=${encodeURIComponent(mangaSlug)}`;
 
-      const response = await fetch(apiUrl, {
-        headers: {
-          "User-Agent": this.config.userAgent,
-          Referer: mangaUrl,
-          Accept: "*/*",
-        },
-      });
-
-      if (!response.ok) {
+      let html: string;
+      try {
+        html = await this.fetchWithRetry(apiUrl, {
+          headers: {
+            Referer: mangaUrl,
+            Accept: "*/*",
+          },
+        });
+      } catch {
         return chapters;
       }
-
-      const html = await response.text();
       const $ = cheerio.load(html);
 
       $(".chapter-list li, ul.chapter-list li").each((_, element) => {
@@ -170,32 +168,27 @@ export class KaliScanScraper extends BaseScraper {
 
           const apiUrl = `${this.BASE_URL}/service/backend/chaplist/?manga_id=${mangaId}&manga_name=${encodeURIComponent(mangaSlug)}`;
 
-          const response = await fetch(apiUrl, {
+          const html = await this.fetchWithRetry(apiUrl, {
             headers: {
-              "User-Agent": this.config.userAgent,
               Referer: result.url,
               Accept: "*/*",
             },
           });
+          const $ = cheerio.load(html);
 
-          if (response.ok) {
-            const html = await response.text();
-            const $ = cheerio.load(html);
+          const firstChapter = $(
+            ".chapter-list li, ul.chapter-list li",
+          ).first();
+          const updateTime = firstChapter
+            .find(".chapter-update, time.chapter-update")
+            .text()
+            .trim();
 
-            const firstChapter = $(
-              ".chapter-list li, ul.chapter-list li",
-            ).first();
-            const updateTime = firstChapter
-              .find(".chapter-update, time.chapter-update")
-              .text()
-              .trim();
-
-            if (updateTime) {
-              return {
-                ...result,
-                lastUpdated: updateTime,
-              };
-            }
+          if (updateTime) {
+            return {
+              ...result,
+              lastUpdated: updateTime,
+            };
           }
 
           return result;

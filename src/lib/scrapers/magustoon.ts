@@ -124,19 +124,13 @@ export class MagusToonScraper extends BaseScraper {
     try {
       const apiUrl = `${this.API_URL}/api/query?page=1&perPage=24&searchTerm=${encodeURIComponent(query)}&seriesType=&seriesStatus=`;
 
-      const response = await fetch(apiUrl, {
+      const data = await this.fetchJsonWithRetry<MagusToonSearchResponse>(apiUrl, {
         headers: {
           Accept: "*/*",
           Origin: this.BASE_URL,
           Referer: `${this.BASE_URL}/`,
         },
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data: MagusToonSearchResponse = await response.json();
 
       const mangaPosts = data.posts.filter((post) => !post.isNovel).slice(0, 5);
 

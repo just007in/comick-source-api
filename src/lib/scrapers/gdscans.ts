@@ -51,10 +51,9 @@ export class GDScansScraper extends BaseScraper {
 
       let html: string;
       try {
-        const response = await fetch(ajaxUrl, {
+        html = await this.fetchWithRetry(ajaxUrl, {
           method: "POST",
           headers: {
-            "User-Agent": this.config.userAgent,
             Accept: "*/*",
             "Content-Type": "application/x-www-form-urlencoded",
             "X-Requested-With": "XMLHttpRequest",
@@ -62,12 +61,6 @@ export class GDScansScraper extends BaseScraper {
             Origin: this.BASE_URL,
           },
         });
-
-        if (response.ok) {
-          html = await response.text();
-        } else {
-          html = mainHtml;
-        }
       } catch {
         html = mainHtml;
       }
@@ -209,18 +202,15 @@ export class GDScansScraper extends BaseScraper {
 
           let chaptersHtml: string;
           try {
-            const response = await fetch(ajaxUrl, {
+            chaptersHtml = await this.fetchWithRetry(ajaxUrl, {
               method: "POST",
               headers: {
-                "User-Agent": this.config.userAgent,
                 Accept: "*/*",
                 "X-Requested-With": "XMLHttpRequest",
                 Referer: series.url,
                 Origin: this.BASE_URL,
               },
             });
-
-            chaptersHtml = response.ok ? await response.text() : seriesHtml;
           } catch {
             chaptersHtml = seriesHtml;
           }

@@ -136,6 +136,27 @@ Get chapter list for a manga.
 }
 ```
 
+### POST /api/metadata
+
+Get series-level metadata (title, description, status, tags, authors, release
+date, alt titles, cover) for a manga, from sources that support it. Same
+request shape as `/api/chapters`:
+
+```json
+{
+  "url": "https://atsu.moe/manga/oZOG5",
+  "source": "atsumoe"  // optional, auto-detected
+}
+```
+
+Responds `{ "metadata": { ... }, "source": "AtsuMoe" }`; a source without
+metadata support gets a 400 listing the sources that have it. Currently
+supported: **AtsuMoe**. Candidates for future support: Comix (the frontpage
+layer already parses synopsis/status/type), FlameComics, Bato, MangaPark,
+WeebCentral (structured detail data), and the Madara/WordPress-theme sites
+(MangaRead, Manhuaus, TopManhua, Madarascans, Manhuaplus, Eva Scans, ...)
+whose detail pages expose standard Genres/Status/Summary blocks.
+
 ### GET /api/health
 
 Check source status. Cached for 5 minutes. Returns `cached` and `cacheAge` fields.
