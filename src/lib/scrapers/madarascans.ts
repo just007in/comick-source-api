@@ -5,7 +5,7 @@ import { ScrapedChapter, SearchResult, SourceType } from "@/types";
 import { mapWithConcurrencyLimit, SEARCH_DETAIL_FETCH_CONCURRENCY } from "@/lib/utils/concurrency";
 
 export class MadaraScansScraper extends BaseScraper {
-  private readonly BASE_URL = "https://madarascans.com";
+  private readonly BASE_URL = "https://madarascans.org";
 
   getName(): string {
     return "Madarascans";
@@ -20,7 +20,7 @@ export class MadaraScansScraper extends BaseScraper {
   }
 
   canHandle(url: string): boolean {
-    return url.includes("madarascans.com");
+    return url.includes("madarascans.com") || url.includes("madarascans.org");
   }
 
   async extractMangaInfo(url: string): Promise<{ title: string; id: string }> {
@@ -124,15 +124,17 @@ export class MadaraScansScraper extends BaseScraper {
       rating?: number;
     }> = [];
 
-    $(".legend-card").each((_, element) => {
+    // The site replaced its "legend-card" grid with a "snap-card" grid
+    // (and moved from madarascans.com to .org).
+    $(".snap-card").each((_, element) => {
       const $item = $(element);
 
-      const titleLink = $item.find(".legend-content .legend-title a").first();
+      const titleLink = $item.find(".snap-title a").first();
       const title = titleLink.text().trim();
 
       let url = titleLink.attr("href");
       if (!url) {
-        url = $item.find("a.legend-poster").first().attr("href");
+        url = $item.find("a.snap-poster").first().attr("href");
       }
 
       if (!url || !title) return;
@@ -140,13 +142,8 @@ export class MadaraScansScraper extends BaseScraper {
       const slugMatch = url.match(/\/series\/([^/]+)/);
       const id = slugMatch ? slugMatch[1] : "";
 
-      const coverImg = $item.find("img.legend-img").first();
+      const coverImg = $item.find(".snap-poster img").first();
       const coverImage = coverImg.attr("src") || coverImg.attr("data-src");
-
-      const ratingDiv = $item.find(".legend-rating").first();
-      const ratingText = ratingDiv.text().trim();
-      const ratingMatch = ratingText.match(/(\d+(?:\.\d+)?)/);
-      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : undefined;
 
       matchedSeries.push({
         id,
@@ -157,7 +154,6 @@ export class MadaraScansScraper extends BaseScraper {
           : coverImage
             ? `${this.BASE_URL}${coverImage}`
             : undefined,
-        rating,
       });
     });
 

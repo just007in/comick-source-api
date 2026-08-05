@@ -45,43 +45,32 @@ export class HadesScansScraper extends BaseScraper {
       const html = await this.fetchWithRetry(mangaUrl);
       const $ = cheerio.load(html);
 
-      $("#chapterlist ul li").each((_: number, element: any) => {
-        const $chapter = $(element);
-        const $link = $chapter.find("a").first();
+      // The new "cx" theme lists chapters as .cx-chapter-item anchors
+      // (replacing the MangaStream-style #chapterlist).
+      $("a.cx-chapter-item").each((_: number, element: any) => {
+        const $link = $(element);
         const href = $link.attr("href");
 
         if (!href || href.includes("#")) {
           return;
         }
 
-        const hasLockedBadge = $link.find(".locked-badge").length > 0;
-        if (hasLockedBadge) {
-          return;
-        }
-
-        const chapterText = $chapter.find(".chapternum").text().trim();
-        const dateText = $chapter.find(".chapterdate").text().trim();
-        const dataNum = $chapter.attr("data-num");
-
         const fullUrl = href.startsWith("http")
           ? href
           : `${this.BASE_URL}${href}`;
 
-        let chapterNumber: number;
-        if (dataNum) {
-          chapterNumber = parseFloat(dataNum);
-        } else {
-          chapterNumber = this.extractChapterNumber(fullUrl);
-        }
+        const dataTitle = $link.attr("data-cx-chapter-title");
+        const chapterNumber = dataTitle
+          ? parseFloat(dataTitle)
+          : this.extractChapterNumber(fullUrl);
 
         if (chapterNumber >= 0 && !seenChapterNumbers.has(chapterNumber)) {
           seenChapterNumbers.add(chapterNumber);
           chapters.push({
             id: `${chapterNumber}`,
             number: chapterNumber,
-            title: chapterText || `Chapter ${chapterNumber}`,
+            title: `Chapter ${chapterNumber}`,
             url: fullUrl,
-            lastUpdated: dateText || undefined,
           });
         }
       });
@@ -121,29 +110,28 @@ export class HadesScansScraper extends BaseScraper {
     const $ = cheerio.load(html);
     const results: SearchResult[] = [];
 
-    $(".bsx").each((_, element) => {
+    // The site replaced its MangaStream-style .bsx grid with a custom
+    // "cx-poster-card" grid.
+    $(".cx-poster-card").each((_, element) => {
       const $item = $(element);
 
-      const titleLink = $item.find("a").first();
+      const titleLink = $item.find(".cx-poster-card__body-link").first();
       const url = titleLink.attr("href");
-      const title = $item.find(".tt").text().trim();
+      const title = $item.find(".cx-poster-card__title").text().trim();
 
       if (!url) return;
 
       const slugMatch = url.match(/\/manga\/([^/]+)/);
       const id = slugMatch ? slugMatch[1] : "";
 
-      const coverImg = $item.find("img").first();
+      const coverImg = $item.find(".cx-poster-card__cover img").first();
       const coverImage = coverImg.attr("src");
 
-      const latestChapterText = $item.find(".ch-name").text().trim();
-      const chapterMatch = latestChapterText.match(/Chapter\s+([\d.]+)/i);
+      const latestChapterText = $item.find(".cx-poster-card__chapter").text().trim();
+      const chapterMatch = latestChapterText.match(/(?:Chapter|Ch\.?)\s*([\d.]+)/i);
       const latestChapter = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
 
-      const lastUpdated = $item.find(".ch-date").text().trim();
-
-      const ratingText = $item.find(".numscore").text().trim();
-      const rating = ratingText ? parseFloat(ratingText) : undefined;
+      const lastUpdated = $item.find(".cx-poster-card__meta time").text().trim();
 
       results.push({
         id,
@@ -156,7 +144,6 @@ export class HadesScansScraper extends BaseScraper {
             : undefined,
         latestChapter,
         lastUpdated,
-        rating,
       });
     });
 

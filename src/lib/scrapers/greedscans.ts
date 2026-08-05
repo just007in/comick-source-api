@@ -4,7 +4,7 @@ import { BaseScraper } from "./base";
 import { ScrapedChapter, SearchResult, SourceType } from "@/types";
 
 export class GreedScansScraper extends BaseScraper {
-  private readonly BASE_URL = "https://greedscans.com";
+  private readonly BASE_URL = "https://greedscans.org";
 
   getName(): string {
     return "Greed Scans";
@@ -15,7 +15,7 @@ export class GreedScansScraper extends BaseScraper {
   }
 
   canHandle(url: string): boolean {
-    return url.includes("greedscans.com");
+    return url.includes("greedscans.com") || url.includes("greedscans.org");
   }
 
   getType(): SourceType {
@@ -45,38 +45,28 @@ export class GreedScansScraper extends BaseScraper {
       const html = await this.fetchWithRetry(mangaUrl);
       const $ = cheerio.load(html);
 
-      $("#chapterlist ul li").each((_: number, element: any) => {
-        const $chapter = $(element);
-        const $link = $chapter.find("a").first();
-        const href = $link.attr("href");
+      // The new "greed" theme lists chapters as .greed-series-chapter
+      // anchors (replacing the MangaStream-style #chapterlist).
+      $("a.greed-series-chapter").each((_: number, element: any) => {
+        const $link = $(element);
+        const href = $link.attr("data-chapter-url") || $link.attr("href");
 
         if (!href || href.includes("#")) {
           return;
         }
 
-        const chapterText = $chapter.find(".chapternum").text().trim();
-        const dateText = $chapter.find(".chapterdate").text().trim();
-        const dataNum = $chapter.attr("data-num");
-
         const fullUrl = href.startsWith("http")
           ? href
           : `${this.BASE_URL}${href}`;
-
-        let chapterNumber: number;
-        if (dataNum) {
-          chapterNumber = parseFloat(dataNum);
-        } else {
-          chapterNumber = this.extractChapterNumber(fullUrl);
-        }
+        const chapterNumber = this.extractChapterNumber(fullUrl);
 
         if (chapterNumber >= 0 && !seenChapterNumbers.has(chapterNumber)) {
           seenChapterNumbers.add(chapterNumber);
           chapters.push({
-            id: `${chapterNumber}`,
+            id: $link.attr("data-chapter-id") || `${chapterNumber}`,
             number: chapterNumber,
-            title: chapterText || `Chapter ${chapterNumber}`,
+            title: `Chapter ${chapterNumber}`,
             url: fullUrl,
-            lastUpdated: dateText || undefined,
           });
         }
       });
@@ -116,26 +106,36 @@ export class GreedScansScraper extends BaseScraper {
     const $ = cheerio.load(html);
     const results: SearchResult[] = [];
 
-    $(".bsx").each((_, element) => {
+    // The site replaced its MangaStream-style .bsx grid with a custom
+    // "greed-archive" card grid.
+    $(".greed-archive-card").each((_, element) => {
       const $item = $(element);
 
-      const titleLink = $item.find("a").first();
+      const titleLink = $item.find(".greed-archive-name").first();
       const url = titleLink.attr("href");
-      const title = $item.find(".tt").text().trim();
+      const title = titleLink.text().trim();
 
       if (!url) return;
 
       const slugMatch = url.match(/\/manga\/([^/]+)/);
       const id = slugMatch ? slugMatch[1] : "";
 
-      const coverImg = $item.find("img").first();
+      const coverImg = $item.find(".greed-archive-cover__img").first();
       const coverImage = coverImg.attr("src");
 
-      const latestChapterText = $item.find(".epxs").text().trim();
-      const chapterMatch = latestChapterText.match(/Chapter\s+([\d.]+)/i);
+      const latestChapterText = $item
+        .find(".greed-archive-chapters a")
+        .first()
+        .text()
+        .trim();
+      const chapterMatch = latestChapterText.match(/(?:Chapter|Ch\.?)\s*([\d.]+)/i);
       const latestChapter = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
 
-      const ratingText = $item.find(".numscore").text().trim();
+      const ratingText = $item
+        .find(".greed-archive-rating")
+        .text()
+        .replace(/[^\d.]/g, "")
+        .trim();
       const rating = ratingText ? parseFloat(ratingText) : undefined;
 
       results.push({

@@ -116,10 +116,8 @@ describe("Source Scrapers", () => {
   describe("Chapter listing functionality", () => {
     // Test URLs for each source
     const testUrls: Record<string, string> = {
-      MangaPark: "https://mangapark.io/title/75577-en-solo-leveling",
       AtsuMoe: "https://atsu.moe/manga/oZOG5/",
-      LikeManga: "https://likemanga.in/manga/solo-leveling/",
-      Manhuaus: "https://manhuaus.com/manga/solo-leveling/",
+      LikeManga: "https://mgread.io/manga/a-beast-swallowed-by-a-flower/",
       MangaRead: "https://www.mangaread.org/manga/solo-leveling/",
       Mgeko: "https://www.mgeko.cc/manga/solo-leveling-mg1/",
       NovelCool:
@@ -127,7 +125,6 @@ describe("Source Scrapers", () => {
       AsuraScan: "https://asuracomic.net/series/solo-leveling-042eaa6c",
       WeebCentral: "https://weebcentral.com/series/01J76XYCPSY3C4BNPBRY8JMCBE/Solo-Leveling",
       FlameComics: "https://flamecomics.xyz/series/1",
-      Bato: "https://bato.to/series/81514/solo-leveling-official",
     };
 
     scrapers.forEach((scraper) => {

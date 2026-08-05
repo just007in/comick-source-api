@@ -6,54 +6,39 @@ Next.js API for scraping manga metadata from multiple sources.
 
 | Source             | ID                   | Base URL                    | Status   |
 | ------------------ | -------------------- | --------------------------- | -------- |
-| Arven Comics       | `arven-comics`       | https://arvencomics.com     | Active   |
-| Arya Scans         | `arya-scans`         | https://brainrotcomics.com  | Unstable |
 | Asmodeus Scans     | `asmodeus-scans`     | https://asmotoon.com        | Active   |
 | AsuraScan          | `asurascan`          | https://asurascans.com      | Active   |
 | Athrea Scans       | `athrea-scans`       | https://athreascans.com     | Active   |
 | AtsuMoe            | `atsumoe`            | https://atsumoe.com         | Unstable |
-| Bato               | `bato`               | https://bato.to             | Shutdown |
-| Comix              | `comix`              | https://comix.to            | Unstable |
 | DemonicScans       | `demonicscans`       | https://demonicscans.org    | Unstable |
-| Diva Scans         | `diva-scans`         | https://divatoon.com        | Unstable |
 | Elf Toon           | `elf-toon`           | https://elftoon.com         | Active   |
 | Eva Scans          | `eva-scans`          | https://evascans.org        | Active   |
-| Falcon Scans       | `falcon-scans`       | https://falconscans.com     | Shutdown |
-| Firescans          | `firescans`          | https://firescans.xyz       | Unstable |
 | FlameComics        | `flamecomics`        | https://flamecomics.xyz     | Active   |
 | Galaxy Degen Scans | `galaxy-degen-scans` | https://gdscans.com         | Active   |
-| Greed Scans        | `greed-scans`        | https://greedscans.com      | Active   |
+| Greed Scans        | `greed-scans`        | https://greedscans.org      | Active   |
 | Hades Scans        | `hades-scans`        | https://hadesscans.com      | Active   |
 | KaliScan           | `kaliscan`           | https://kaliscan.com        | Active   |
-| KappaBeast         | `kappabeast`         | https://kappabeast.com      | Active   |
 | KDT Scans          | `kdt-scans`          | https://www.silentquill.net | Unstable |
 | Kenscans           | `kenscans`           | https://kencomics.com       | Active   |
 | KS Group           | `ks-group-scans`     | https://ksgroupscans.com    | Active   |
 | KuraManga          | `kuramanga`          | https://kuramanga.com       | Active   |
 | LagoonScans        | `lagoonscans`        | https://lagoonscans.com     | Active   |
 | LHTranslation      | `lhtranslation`      | https://lhtranslation.net   | Active   |
-| LikeManga          | `likemanga`          | https://likemanga.io        | Unstable |
+| LikeManga          | `likemanga`          | https://mgread.io           | Active   |
 | Lua Comic          | `lua-comic`          | https://luacomic.org        | Active   |
-| Madarascans        | `madarascans`        | https://madarascans.com     | Active   |
+| Madarascans        | `madarascans`        | https://madarascans.org     | Active   |
 | Magus Manga        | `magus-manga`        | https://magustoon.org       | Active   |
-| MangaCloud         | `mangacloud`         | https://mangacloud.org      | Unstable |
-| Mangago            | `mangago`            | https://www.mangago.zone    | Active   |
 | MangaKatana        | `mangakatana`        | https://mangakatana.com     | Active   |
 | Mangaloom          | `mangaloom`          | https://mangaloom.com       | Active   |
-| MangaPark          | `mangapark`          | https://mangapark.io        | Shutdown |
 | MangaRead          | `mangaread`          | https://mangaread.org       | Active   |
 | Mangasushi         | `mangasushi`         | https://mangasushi.org      | Active   |
 | Mangataro          | `mangataro`          | https://mangataro.org       | Active   |
 | MangaYY            | `mangayy`            | https://mangayy.org         | Active   |
 | Manhuaplus         | `manhuaplus`         | https://manhuaplus.top      | Active   |
-| ManhuaUS           | `manhuaus`           | https://manhuaus.com        | Unstable |
 | Mgeko              | `mgeko`              | https://mgeko.cc            | Active   |
 | Mist Scans         | `mist-scans`         | https://mistscans.com       | Active   |
 | NovelCool          | `novelcool`          | https://www.novelcool.com   | Unstable |
-| Philia Scans       | `philia-scans`       | https://philiascans.org     | Unstable |
 | Project Suki       | `project-suki`       | https://projectsuki.com     | Active   |
-| Qi Scans           | `qi-scans`           | https://qimanhwa.com        | Unstable |
-| Rage Scans         | `rage-scans`         | https://ragescans.com       | Unstable |
 | Raven Scans        | `raven-scans`        | https://ravenscans.org      | Active   |
 | RD Scans           | `rd-scans`           | https://rdscans.com         | Active   |
 | Ritharscans        | `ritharscans`        | https://ritharscans.com     | Active   |
@@ -61,20 +46,15 @@ Next.js API for scraping manga metadata from multiple sources.
 | Rokari Comics      | `rokari-comics`      | https://rokaricomics.com    | Active   |
 | Scythe Scans       | `scythe-scans`       | https://scythescans.com     | Active   |
 | Spider Scans       | `spider-scans`       | https://spiderscans.xyz     | Active   |
-| Stonescape         | `stonescape`         | https://stonescape.xyz      | Active   |
 | Temple Scan        | `temple-scan`        | https://templetoons.com     | Active   |
 | Thunderscans       | `thunderscans`       | https://en-thunderscans.com | Active   |
-| TopManhua          | `topmanhua`          | https://manhuatop.org       | Active   |
-| UTOON              | `utoon`              | https://utoon.net           | Active   |
 | Violetscans        | `violetscans`        | https://violetscans.org     | Active   |
 | Vortex Scans       | `vortex-scans`       | https://vortexscans.org     | Active   |
 | WEBTOON            | `webtoon`            | https://www.webtoons.com    | Active   |
 | WeebCentral        | `weebcentral`        | https://weebcentral.com     | Active   |
-| Weebdex            | `weebdex`            | https://weebdex.org         | Shutdown |
 | WitchScans         | `witchscans`         | https://witchscans.com      | Active   |
 | Writers' Scans     | `writers-scans`      | https://writerscans.com     | Active   |
 | Yaksha Comics      | `yaksha-comics`      | https://yakshacomics.com    | Active   |
-| Yaksha Scans       | `yaksha-scans`       | https://yakshascans.com     | Active   |
 
 ## Setup
 
@@ -103,10 +83,10 @@ List all supported sources.
 {
   "sources": [
     {
-      "id": "mangapark",
-      "name": "MangaPark",
-      "baseUrl": "https://mangapark.io",
-      "description": "MangaPark - https://mangapark.io",
+      "id": "mangaread",
+      "name": "MangaRead",
+      "baseUrl": "https://mangaread.org",
+      "description": "MangaRead - https://mangaread.org",
       "clientOnly": false,
       "type": "aggregator"
     }
@@ -121,7 +101,7 @@ Search manga across sources.
 ```json
 {
   "query": "solo leveling",
-  "source": "mangapark"  // or "all"
+  "source": "mangaread"  // or "all"
 }
 ```
 
@@ -131,8 +111,8 @@ Get chapter list for a manga.
 
 ```json
 {
-  "url": "https://mangapark.io/title/75577-en-solo-leveling",
-  "source": "mangapark"  // optional, auto-detected
+  "url": "https://www.mangaread.org/manga/solo-leveling/",
+  "source": "mangaread"  // optional, auto-detected
 }
 ```
 
@@ -151,11 +131,10 @@ request shape as `/api/chapters`:
 
 Responds `{ "metadata": { ... }, "source": "AtsuMoe" }`; a source without
 metadata support gets a 400 listing the sources that have it. Currently
-supported: **AtsuMoe**. Candidates for future support: Comix (the frontpage
-layer already parses synopsis/status/type), FlameComics, Bato, MangaPark,
+supported: **AtsuMoe**. Candidates for future support: FlameComics and
 WeebCentral (structured detail data), and the Madara/WordPress-theme sites
-(MangaRead, Manhuaus, TopManhua, Madarascans, Manhuaplus, Eva Scans, ...)
-whose detail pages expose standard Genres/Status/Summary blocks.
+(MangaRead, Madarascans, Manhuaplus, Eva Scans, ...) whose detail pages
+expose standard Genres/Status/Summary blocks.
 
 ### GET /api/health
 

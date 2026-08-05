@@ -43,53 +43,30 @@ export class SpiderScansScraper extends BaseScraper {
     const seenChapterNumbers = new Set<number>();
 
     try {
-      const mainHtml = await this.fetchWithRetry(mangaUrl);
-
-      const ajaxUrl = mangaUrl.endsWith("/")
-        ? `${mangaUrl}ajax/chapters/?t=1`
-        : `${mangaUrl}/ajax/chapters/?t=1`;
-
-      let html: string;
-      try {
-        html = await this.fetchWithRetry(ajaxUrl, {
-          method: "POST",
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-Requested-With": "XMLHttpRequest",
-            Referer: mangaUrl,
-          },
-        });
-      } catch {
-        html = mainHtml;
-      }
-
+      // The site dropped its Madara theme (and its /ajax/chapters/
+      // endpoint) - chapters are now plain .chapter-item anchors on the
+      // series page itself.
+      const html = await this.fetchWithRetry(mangaUrl);
       const $ = cheerio.load(html);
 
-      $("li.wp-manga-chapter").each((_: number, element: any) => {
-        const $chapter = $(element);
-        const $link = $chapter.find("a").first();
+      $("a.chapter-item").each((_: number, element: any) => {
+        const $link = $(element);
         const href = $link.attr("href");
 
-        const hasLock = $link.find(".fa-lock").length > 0;
-        const isPremium = $chapter.hasClass("premium-block");
-        
-        if (!href || href === "#" || hasLock || isPremium) {
+        if (!href || href === "#") {
           return;
         }
 
-        const chapterText = $link.text().trim();
-        const chapterNumber = this.extractChapterNumber(href) || 
-                             this.extractChapterNumberFromText(chapterText);
+        const dataChapter = $link.attr("data-chapter");
+        const chapterNumber = dataChapter
+          ? parseFloat(dataChapter)
+          : this.extractChapterNumber(href);
 
         if (chapterNumber >= 0 && !seenChapterNumbers.has(chapterNumber)) {
           seenChapterNumbers.add(chapterNumber);
 
-          const dateText = $chapter
-            .find(".chapter-release-date")
-            .text()
-            .trim()
-            .replace(/[<>]/g, "");
+          const chapterText = $link.find(".chapter-num").text().trim();
+          const dateText = $link.find(".chapter-date").text().trim();
 
           const fullUrl = href.startsWith("http")
             ? href
@@ -149,9 +126,11 @@ export class SpiderScansScraper extends BaseScraper {
       rating?: number;
     }> = [];
 
-    $(".c-tabs-item__content").each((_, element) => {
-      const $item = $(element);
-      const link = $item.find(".post-title a").first();
+    // The site swapped its Madara search template for a custom posts loop:
+    // each result is a bare (class-less, inline-styled) <article> whose
+    // heading links to the series page. No cover or rating in the results.
+    $("article h2 a[href*='/manga/']").each((_, element) => {
+      const link = $(element);
       const url = link.attr("href");
       const title = link.text().trim();
 
@@ -160,26 +139,7 @@ export class SpiderScansScraper extends BaseScraper {
       const slugMatch = url.match(/\/manga\/([^/]+)/);
       const id = slugMatch ? slugMatch[1] : "";
 
-      const coverImg = $item.find("img").first();
-      const coverImage =
-        coverImg.attr("src") ||
-        coverImg.attr("data-src") ||
-        coverImg.attr("data-lazy-src");
-
-      const ratingText = $item.find(".total_votes").text().trim();
-      const rating = ratingText ? parseFloat(ratingText) : undefined;
-
-      matchedSeries.push({
-        id,
-        title,
-        url,
-        coverImage: coverImage?.startsWith("http")
-          ? coverImage
-          : coverImage
-            ? `${this.BASE_URL}${coverImage}`
-            : undefined,
-        rating,
-      });
+      matchedSeries.push({ id, title, url });
     });
 
     const limitedSeries = matchedSeries.slice(0, 5);
